@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- IE Dashboard -->
+<!-- IE Dashboard - Production Monitoring & KPI Analytics -->
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>智能產線即時監控儀表板 & Cycle Time 分析系統</title>
+  <title>智能產線即時監控儀表板 (IE Dashboard)</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
     :root {
@@ -51,7 +51,7 @@
       background: var(--card);
       border: 2px dashed #94a3b8;
       border-radius: 14px;
-      padding: 26px 20px;
+      padding: 24px 20px;
       text-align: center;
       transition: all 0.2s;
       margin-bottom: 20px;
@@ -104,6 +104,12 @@
       gap: 16px;
       margin-bottom: 20px;
     }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
@@ -118,7 +124,7 @@
       box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
       margin-bottom: 18px;
     }
-    .grid-4 .card, .grid-2 .card { margin-bottom: 0; }
+    .grid-4 .card, .grid-3 .card, .grid-2 .card { margin-bottom: 0; }
     .card h2 {
       margin: 0 0 12px;
       font-size: 1.08rem;
@@ -165,31 +171,46 @@
     }
     .st-meta { font-size: 0.78rem; opacity: 0.9; }
 
+    details.settings-drawer {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      margin-bottom: 18px;
+      font-size: 0.9rem;
+    }
+    details.settings-drawer summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--navy);
+      user-select: none;
+    }
     .controls-row {
       display: flex;
       flex-wrap: wrap;
       gap: 16px;
       align-items: center;
-      background: #f8fafc;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 16px;
-      margin-bottom: 16px;
-      font-size: 0.9rem;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
     }
     .control-item {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    .control-item input[type="number"], .control-item select {
+    .control-item input[type="number"] {
       padding: 5px 8px;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       font-size: 0.9rem;
-      width: 90px;
+      width: 92px;
     }
-    .control-item select { width: auto; }
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 0.84rem;
+      border-radius: 6px;
+    }
 
     table {
       width: 100%;
@@ -211,7 +232,7 @@
     }
     th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
     tr:hover td { background: #f8fafc; }
-    .table-wrap { overflow-x: auto; max-height: 420px; }
+    .table-wrap { overflow-x: auto; max-height: 440px; }
 
     .tabs {
       display: flex;
@@ -247,6 +268,17 @@
       border-radius: 0 8px 8px 0;
       margin-top: 12px;
     }
+    .auto-badge {
+      display: inline-block;
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: #1d4ed8;
+      background: #dbeafe;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
     @media (max-width: 640px) {
       .grid-2 { grid-template-columns: 1fr; }
     }
@@ -256,7 +288,7 @@
   <header>
     <div>
       <h1>🏭 智能產線即時監控儀表板（IE Dashboard）</h1>
-      <div class="sub">支援 IE Chair CSV 上傳｜各站 Cycle Time、全線節拍、閒置時間驗算、四色燈號與 What-if 模擬</div>
+      <div class="sub">上傳 IE Chair CSV 即可自動解析：各站 Cycle Time、工站閒置與稼動率、生產績效指標 (KPI)</div>
     </div>
     <div id="headerMeta" class="sub">尚未載入資料</div>
   </header>
@@ -268,12 +300,12 @@
         📂 拖曳 IE Chair 匯出的 CSV 檔案到這裡，或點擊下方按鈕上傳
       </div>
       <div style="font-size: 0.88rem; color: var(--muted); margin-top: 4px;">
-        自動相容 3 站測試檔與 9 站正式檔，並自動略過 CSV 尾端摘要列與原料無限值 (9999)
+        免手動填寫參數，上傳後自動相容 3 站測試檔、平行工站與 9 站正式檔，並自動過濾尾端摘要列
       </div>
       <div class="upload-actions">
         <label class="btn btn-primary" for="csvFileInput">📁 選擇 CSV 檔案</label>
         <input type="file" id="csvFileInput" accept=".csv,text/csv" />
-        <button class="btn btn-outline" id="loadSampleBtn" type="button">🧪 載入本次 G16 測試範例</button>
+        <button class="btn btn-outline" id="loadSampleBtn" type="button">🧪 載入 G16 測試範例</button>
       </div>
     </div>
 
@@ -281,37 +313,39 @@
     <div id="dashboard" class="hidden">
       <div id="alertBanner" class="alert-banner"></div>
 
-      <!-- Navigation Tabs -->
+      <!-- Navigation Tabs (Clean 4-Tab Layout) -->
       <div class="tabs">
-        <button class="tab-btn active" data-tab="overview">1. 戰情總覽與 Cycle Time</button>
-        <button class="tab-btn" data-tab="idle">2. 進階：各站閒置時間</button>
-        <button class="tab-btn" data-tab="whatif">3. What-if 跨站支援模擬</button>
-        <button class="tab-btn" data-tab="kpi6">4. 課後練習：6 大生產指標</button>
-        <button class="tab-btn" data-tab="verify">5. 原始資料與驗算明細</button>
+        <button class="tab-btn active" data-tab="overview">1. 產線總覽與 Cycle Time</button>
+        <button class="tab-btn" data-tab="idle">2. 工站閒置與稼動率</button>
+        <button class="tab-btn" data-tab="kpi">3. 生產績效指標 (KPI)</button>
+        <button class="tab-btn" data-tab="verify">4. 原始紀錄與明細</button>
       </div>
 
       <!-- TAB 1: Overview -->
       <section id="tab-overview" class="tab-panel active">
         <div class="grid-4" id="kpiCards"></div>
 
-        <div class="controls-row">
-          <div class="control-item">
-            <label for="warnLineInput">🔴 瓶頸警戒線 (秒)：</label>
-            <input type="number" id="warnLineInput" step="1" min="1" value="20" />
+        <details class="settings-drawer">
+          <summary>⚙️ 燈號警戒門檻微調（預設已依 CSV 自動計算，可依現場需求展開修改）</summary>
+          <div class="controls-row">
+            <div class="control-item">
+              <label for="warnLineInput">🔴 瓶頸警戒線 (秒)：</label>
+              <input type="number" id="warnLineInput" step="1" min="1" value="20" />
+            </div>
+            <div class="control-item">
+              <label for="wipThreshInput">🟡 WIP 堆積門檻 (件)：</label>
+              <input type="number" id="wipThreshInput" step="1" min="1" value="3" />
+            </div>
+            <div class="control-item">
+              <label for="idleRatioInput">🔵 空閒站門檻 (低於瓶頸 %)：</label>
+              <input type="number" id="idleRatioInput" step="5" min="10" max="95" value="75" />
+            </div>
+            <div class="control-item">
+              <label for="targetThroughputInput">🎯 每小時目標產量 (件/時)：</label>
+              <input type="number" id="targetThroughputInput" step="5" min="1" value="80" />
+            </div>
           </div>
-          <div class="control-item">
-            <label for="wipThreshInput">🟡 WIP 堆積警示門檻 (件)：</label>
-            <input type="number" id="wipThreshInput" step="1" min="1" value="3" />
-          </div>
-          <div class="control-item">
-            <label for="idleRatioInput">🔵 空閒站判定 (低於瓶頸 %)：</label>
-            <input type="number" id="idleRatioInput" step="5" min="10" max="95" value="75" />
-          </div>
-          <div class="control-item">
-            <label for="targetThroughputInput">🎯 每小時目標產量 (件/時)：</label>
-            <input type="number" id="targetThroughputInput" step="5" min="1" value="80" />
-          </div>
-        </div>
+        </details>
 
         <div class="grid-2">
           <div class="card">
@@ -333,89 +367,68 @@
         </div>
       </section>
 
-      <!-- TAB 2: Idle Time -->
+      <!-- TAB 2: Idle Time & Utilization -->
       <section id="tab-idle" class="tab-panel">
         <div class="card">
-          <h2>⏱️ 各工作站加工時間 vs. 總閒置時間堆疊圖</h2>
+          <h2>⏱️ 各工作站加工時間 vs. 等待與閒置時間堆疊圖</h2>
           <div class="chart-box"><canvas id="idleChart"></canvas></div>
         </div>
         <div class="card">
-          <h2>📋 進階：各工作站閒置時間詳細拆解（三種驗算口徑）</h2>
+          <h2>📋 各工作站閒置時間與稼動率明細表</h2>
           <div class="table-wrap">
             <table id="idleTable"></table>
           </div>
           <div class="formula-note">
-            <strong>驗算公式說明：</strong><br>
-            1. <strong>總閒置時間（全線活動區間）</strong> = 活動總耗時 − 該站總加工時間 = 「開工前等料」＋「件間等待空檔」＋「收尾閒置」。<br>
-            2. <strong>件間等待空檔（Inter-job Idle）</strong> = 該站連續作業之間停下來等料的空檔總和（下一件開工時間 − 上一件完工時間）。<br>
-            3. <strong>每週期平衡閒置（Line Balance Idle）</strong> = 瓶頸站平均 Cycle Time − 該站平均 Cycle Time（理論線平衡損失）。
+            <strong>計算公式說明：</strong><br>
+            1. <strong>總閒置時間（全活動區間）</strong> = 活動總耗時 − 該站總加工時間 = 「開工前等料」＋「站內換件空檔」＋「收尾閒置」。<br>
+            2. <strong>站內換件空檔（件間等待）</strong> = 同一工站連續作業之間的停頓時間總和（下一件開工時間 − 上一件完工時間）。<br>
+            3. <strong>稼動率（Utilization）</strong> = 該站實際加工時間 ÷（實際加工時間 ＋ 總閒置時間）× 100%。<br>
+            4. <strong>每週期平衡閒置</strong> = 瓶頸站平均 Cycle Time − 該站平均 Cycle Time。
           </div>
         </div>
       </section>
 
-      <!-- TAB 3: What-if -->
-      <section id="tab-whatif" class="tab-panel">
+      <!-- TAB 3: Production KPIs (Auto-derived directly from CSV) -->
+      <section id="tab-kpi" class="tab-panel">
         <div class="card">
-          <h2>🔄 What-if 跨站人力支援情境模擬器</h2>
-          <div class="controls-row">
-            <div class="control-item">
-              <label for="helperSelect">🔵 派出支援站：</label>
-              <select id="helperSelect"></select>
-            </div>
-            <div class="control-item">
-              <label for="targetStSelect">🔴 接受支援瓶頸站：</label>
-              <select id="targetStSelect"></select>
-            </div>
-            <div class="control-item">
-              <label for="reduceRange">⚡ 瓶頸工時縮短比例：<strong id="reduceVal">25%</strong></label>
-              <input type="range" id="reduceRange" min="5" max="50" step="1" value="25" />
-            </div>
-          </div>
-          <div class="grid-4" id="whatifKpis"></div>
-          <div style="margin-top:16px;" class="grid-2">
-            <div class="card">
-              <h2>📉 改善前後：最慢瓶頸站時間（越短越好）</h2>
-              <div class="chart-box"><canvas id="whatifCtChart"></canvas></div>
-            </div>
-            <div class="card">
-              <h2>📈 改善前後：理論每小時產出量（越高越好）</h2>
-              <div class="chart-box"><canvas id="whatifTpChart"></canvas></div>
-            </div>
-          </div>
-        </div>
-      </section>
+          <h2>
+            <span>📐 六大生產績效指標（全自動解析 CSV）<span class="auto-badge">免手動輸入</span></span>
+          </h2>
+          <div class="grid-3" id="kpi6Grid"></div>
 
-      <!-- TAB 4: 6 Production Metrics -->
-      <section id="tab-kpi6" class="tab-panel">
+          <details class="settings-drawer" style="margin-bottom: 14px;">
+            <summary>⚙️ 進階覆寫：若現場有另行規定「目標產量 / 固定標準工時 / 不良品數」，點此展開調整</summary>
+            <div class="controls-row">
+              <div class="control-item">
+                <label for="planOutputInput">目標產量 (組)：</label>
+                <input type="number" id="planOutputInput" min="1" step="1" placeholder="自動" />
+              </div>
+              <div class="control-item">
+                <label for="stdTimeInput">統一標準工時 (秒)：</label>
+                <input type="number" id="stdTimeInput" min="1" step="0.5" placeholder="各站平均" />
+              </div>
+              <div class="control-item">
+                <label for="defectInput">不良品 / 重工 (組)：</label>
+                <input type="number" id="defectInput" min="0" step="1" placeholder="自動偵測" />
+              </div>
+              <div class="control-item">
+                <label for="workersPerStInput">每站人數 (人)：</label>
+                <input type="number" id="workersPerStInput" min="1" step="1" value="1" />
+              </div>
+              <button class="btn btn-outline btn-sm" id="resetKpiAutoBtn" type="button">↺ 恢復全自動 CSV 模式</button>
+            </div>
+          </details>
+
+          <div class="formula-note" id="kpiAutoNote"></div>
+        </div>
+
         <div class="card">
-          <h2>📐 課後自行練習：6 大生產指標計算機</h2>
-          <div class="controls-row">
-            <div class="control-item">
-              <label for="planOutputInput">目標產量 (件)：</label>
-              <input type="number" id="planOutputInput" min="1" step="1" value="4" />
-            </div>
-            <div class="control-item">
-              <label for="stdTimeInput">單站標準工時 (秒/站)：</label>
-              <input type="number" id="stdTimeInput" min="1" step="1" value="20" />
-            </div>
-            <div class="control-item">
-              <label for="defectInput">不良品 / 重工件數 (件)：</label>
-              <input type="number" id="defectInput" min="0" step="1" value="0" />
-            </div>
-            <div class="control-item">
-              <label for="workersPerStInput">每站配置人數 (人)：</label>
-              <input type="number" id="workersPerStInput" min="1" step="1" value="1" />
-            </div>
-          </div>
-          <div class="grid-4" id="kpi6Grid"></div>
-          <div class="card" style="margin-top:16px;">
-            <h2>📊 6 大指標達成視覺化（百分比類指標）</h2>
-            <div class="chart-box"><canvas id="kpi6Chart"></canvas></div>
-          </div>
+          <h2>📊 生產績效指標長條圖（Bar Chart）</h2>
+          <div class="chart-box"><canvas id="kpi6Chart"></canvas></div>
         </div>
       </section>
 
-      <!-- TAB 5: Raw Verification -->
+      <!-- TAB 4: Raw Verification -->
       <section id="tab-verify" class="tab-panel">
         <div class="card">
           <h2>🔍 原始有效紀錄與逐筆時間驗算表</h2>
@@ -483,11 +496,13 @@ function parseIEChairCSV(text) {
 
   const records = [];
   const footerLines = [];
+  const validStatuses = ['COMPLETED', 'IN_PROGRESS', 'FAILED', 'REWORK', 'NG', 'DEFECT'];
+
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i]);
     const st = cols[idx['station_id']] || '';
-    const status = cols[idx['status']] || '';
-    if (!st || !['COMPLETED', 'IN_PROGRESS'].includes(status)) {
+    const status = (cols[idx['status']] || '').toUpperCase();
+    if (!st || !validStatuses.includes(status)) {
       footerLines.push(cols.filter(Boolean).join(' | '));
       continue;
     }
@@ -497,6 +512,7 @@ function parseIEChairCSV(text) {
     const calcDur = (finishMs - startMs) / 1000;
     const wipBefore = parseFloat(cols[idx['wip_before_start']]);
     const wipAfter = parseFloat(cols[idx['wip_after_finish']]);
+    const stdCol = idx['standard_time'] !== undefined ? parseFloat(cols[idx['standard_time']]) : NaN;
 
     records.push({
       id: cols[idx['id']],
@@ -514,10 +530,11 @@ function parseIEChairCSV(text) {
       finishMs,
       duration_sec: isNaN(durCsv) ? calcDur : durCsv,
       calc_duration_sec: calcDur,
+      csv_standard_time: isNaN(stdCol) ? null : stdCol,
       status
     });
   }
-  if (records.length === 0) throw new Error('找不到狀態為 COMPLETED 的有效工站紀錄，請檢查 CSV 欄位格式。');
+  if (records.length === 0) throw new Error('找不到有效工站紀錄，請檢查 CSV 欄位格式。');
   return { records, footerText: footerLines.join('\n') };
 }
 
@@ -526,7 +543,6 @@ function analyzeData(records) {
   const lineEndMs = Math.max(...records.map(r => r.finishMs));
   const totalElapsedSec = (lineEndMs - lineStartMs) / 1000;
 
-  // Group by station
   const map = new Map();
   records.forEach(r => {
     if (!map.has(r.station_id)) map.set(r.station_id, []);
@@ -535,15 +551,28 @@ function analyzeData(records) {
 
   const stationIds = Array.from(map.keys()).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-  // Detect terminal stations
   let terminalIds = stationIds.filter(st => map.get(st).some(r => r.station_flow.includes('終點')));
   if (terminalIds.length === 0) terminalIds = [stationIds[stationIds.length - 1]];
 
+  const startedProductsSet = new Set(records.map(r => r.product_id));
   const completedProductsSet = new Set(
     records.filter(r => terminalIds.includes(r.station_id) && r.status === 'COMPLETED').map(r => r.product_id)
   );
+  const startedCount = startedProductsSet.size || 1;
   const completedOutput = completedProductsSet.size || 1;
   const actualLineCT = totalElapsedSec / completedOutput;
+
+  // Auto-detect rework / failed products directly from CSV
+  const pairSeen = new Set();
+  const reworkProductsSet = new Set();
+  records.forEach(r => {
+    const key = `${r.product_id}__${r.station_id}`;
+    if (pairSeen.has(key) || ['FAILED', 'REWORK', 'NG', 'DEFECT'].includes(r.status)) {
+      reworkProductsSet.add(r.product_id);
+    }
+    pairSeen.add(key);
+  });
+  const autoDefects = Array.from(completedProductsSet).filter(p => reworkProductsSet.has(p)).length;
 
   const stations = stationIds.map(st => {
     const rows = map.get(st).slice().sort((a, b) => a.startMs - b.startMs);
@@ -557,11 +586,9 @@ function analyzeData(records) {
     const startupIdle = (rows[0].startMs - lineStartMs) / 1000;
     const tailIdle = (lineEndMs - rows[rows.length - 1].finishMs) / 1000;
     let interJobIdle = 0;
-    const gaps = [];
     for (let i = 1; i < rows.length; i++) {
       const gap = Math.max(0, (rows[i].startMs - rows[i - 1].finishMs) / 1000);
       interJobIdle += gap;
-      gaps.push(gap);
       rows[i]._gapFromPrev = gap;
     }
     rows[0]._gapFromPrev = null;
@@ -572,7 +599,6 @@ function analyzeData(records) {
     const validWip = rows.filter(r => r.wip_before_start < 9000).map(r => r.wip_before_start);
     const isUnlimitedRaw = rows.every(r => r.wip_before_start >= 9000);
     const maxWipBefore = validWip.length ? Math.max(...validWip) : 0;
-    const lastWipAfter = rows[rows.length - 1].wip_after_finish;
 
     return {
       station_id: st,
@@ -590,11 +616,12 @@ function analyzeData(records) {
       utilizationPct,
       isUnlimitedRaw,
       maxWipBefore,
-      lastWipAfter,
-      gaps,
       isTerminal: terminalIds.includes(st)
     };
   });
+
+  const stationAvgMap = {};
+  stations.forEach(st => { stationAvgMap[st.station_id] = st.avgDur; });
 
   const bottleneckStation = stations.reduce((a, b) => (b.avgDur > a.avgDur ? b : a), stations[0]);
   const fastestStation = stations.reduce((a, b) => (b.avgDur < a.avgDur ? b : a), stations[0]);
@@ -614,11 +641,14 @@ function analyzeData(records) {
       roundId: records[0].round_flow_id,
       totalRecords: records.length,
       stationCount: stations.length,
+      stationAvgMap,
       terminalIds,
       lineStartMs,
       lineEndMs,
       totalElapsedSec,
+      startedCount,
       completedOutput,
+      autoDefects,
       actualLineCT,
       bottleneckStation,
       fastestStation,
@@ -630,18 +660,20 @@ function analyzeData(records) {
   };
 }
 
-function fmt(n, d = 2) { return Number(n).toFixed(d); }
+function fmt(n, d = 2) {
+  const factor = Math.pow(10, d);
+  return (Math.round((Number(n) + Number.EPSILON) * factor) / factor).toFixed(d);
+}
 function fmtTime(ms) {
   const dt = new Date(ms);
   return dt.toLocaleTimeString('zh-TW', { hour12: false }) + '.' + String(dt.getMilliseconds()).padStart(3, '0');
 }
-
 function destroyChart(key) {
   if (state.charts[key]) { state.charts[key].destroy(); delete state.charts[key]; }
 }
 
 function renderAll() {
-  const { stations, summary, records } = state;
+  const { stations, summary } = state;
   if (!summary) return;
 
   document.getElementById('dashboard').classList.remove('hidden');
@@ -653,7 +685,6 @@ function renderAll() {
   const idleRatio = (parseFloat(document.getElementById('idleRatioInput').value) || 75) / 100;
   const targetTp = parseFloat(document.getElementById('targetThroughputInput').value) || 80;
 
-  // Classify station colors
   const congestedStations = [];
   stations.forEach(st => {
     if (st.station_id === summary.bottleneckStation.station_id || st.avgDur >= warnLine) {
@@ -672,14 +703,12 @@ function renderAll() {
     if (!st.isUnlimitedRaw && st.maxWipBefore >= wipThresh) congestedStations.push(st);
   });
 
-  // Alert banner
   const wipMsg = congestedStations.length
     ? `，${congestedStations.map(s => `${s.station_id}(${s.maxWipBefore}件)`).join('、')} 達堆積警戒`
     : '';
   document.getElementById('alertBanner').innerHTML =
-    `🚨 【即時警示】${summary.bottleneckStation.station_id} 為全線最慢瓶頸（平均 ${fmt(summary.bottleneckStation.avgDur)} 秒）${wipMsg}！建議優先調派最快的 ${summary.fastestStation.station_id}（平均 ${fmt(summary.fastestStation.avgDur)} 秒）前往支援。`;
+    `🚨 【即時警示】${summary.bottleneckStation.station_id} 為全線最慢瓶頸（平均 ${fmt(summary.bottleneckStation.avgDur)} 秒）${wipMsg}！空閒度最高工站為 ${summary.fastestStation.station_id}（平均 ${fmt(summary.fastestStation.avgDur)} 秒）。`;
 
-  // KPI cards
   const tpColor = summary.actualThroughputHr >= targetTp ? 'kpi-green' : 'kpi-red';
   document.getElementById('kpiCards').innerHTML = `
     <div class="card">
@@ -688,14 +717,14 @@ function renderAll() {
       <div class="kpi-sub">活動總耗時 ${fmt(summary.totalElapsedSec, 2)} 秒 ÷ 產出 ${summary.completedOutput} 組</div>
     </div>
     <div class="card">
-      <div class="kpi-label">瓶頸站 Cycle Time（最慢工站）</div>
+      <div class="kpi-label">瓶頸站 Cycle Time（穩態節拍）</div>
       <div class="kpi-value kpi-red">${fmt(summary.bottleneckStation.avgDur, 2)} 秒/組</div>
       <div class="kpi-sub">瓶頸站：${summary.bottleneckStation.station_id}（理論極限 ${fmt(summary.theoThroughputHr, 1)} 件/時）</div>
     </div>
     <div class="card">
       <div class="kpi-label">實測每小時產出量（Throughput）</div>
       <div class="kpi-value ${tpColor}">${fmt(summary.actualThroughputHr, 1)} 件/時</div>
-      <div class="kpi-sub">${summary.actualThroughputHr >= targetTp ? '✅ 已達標' : '⚠️ 未達標'}（目標：${targetTp} 件/時）</div>
+      <div class="kpi-sub">${summary.actualThroughputHr >= targetTp ? '✅ 已達標' : '⚠️ 未達標'}（參考目標：${targetTp} 件/時）</div>
     </div>
     <div class="card">
       <div class="kpi-label">產線平衡率（Line Balance Rate）</div>
@@ -704,7 +733,6 @@ function renderAll() {
     </div>
   `;
 
-  // Status Grid
   document.getElementById('statusGrid').innerHTML = stations.map(st => `
     <div class="st-card st-${st.color}">
       <div class="st-title">${st.station_id}</div>
@@ -714,7 +742,6 @@ function renderAll() {
     </div>
   `).join('');
 
-  // Chart 1: Station CT Bar Chart + Warning Threshold Line
   destroyChart('ctChart');
   const barColors = stations.map(st => ({
     red: 'rgba(220, 38, 38, 0.85)',
@@ -730,7 +757,7 @@ function renderAll() {
       datasets: [
         {
           label: '平均 Cycle Time (秒)',
-          data: stations.map(s => Number(s.avgDur.toFixed(2))),
+          data: stations.map(s => Number(fmt(s.avgDur, 2))),
           backgroundColor: barColors,
           borderRadius: 6
         },
@@ -749,13 +776,10 @@ function renderAll() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      scales: {
-        y: { beginAtZero: true, title: { display: true, text: '秒數 (sec)' } }
-      }
+      scales: { y: { beginAtZero: true, title: { display: true, text: '秒數 (sec)' } } }
     }
   });
 
-  // Table 1: Station Summary
   document.getElementById('stationSummaryTable').innerHTML = `
     <thead>
       <tr>
@@ -789,21 +813,21 @@ function renderAll() {
 
   document.getElementById('ctFormulaNote').innerHTML = `
     <strong>Cycle Time 雙口徑對照：</strong>
-    ① <strong>全線實際 Cycle Time</strong> = 活動總耗時 (${fmt(summary.totalElapsedSec, 2)} 秒) ÷ 終點站 (${summary.terminalIds.join(',')}) 完成組數 (${summary.completedOutput} 組) = <strong>${fmt(summary.actualLineCT, 2)} 秒/組</strong>（與系統匯出 CSV 摘要一致）。
-    ② <strong>瓶頸節拍 Cycle Time</strong> = 全線最慢工作站 (${summary.bottleneckStation.station_id}) 平均作業時間 = <strong>${fmt(summary.bottleneckStation.avgDur, 2)} 秒/組</strong>（代表穩態量產的理論最高節拍）。
+    ① <strong>全線實際 Cycle Time</strong> = 活動總耗時 (${fmt(summary.totalElapsedSec, 2)} 秒) ÷ 終點站 (${summary.terminalIds.join(',')}) 完成組數 (${summary.completedOutput} 組) = <strong>${fmt(summary.actualLineCT, 2)} 秒/組</strong>（與原系統 CSV 摘要一致）。
+    ② <strong>瓶頸站 Cycle Time</strong> = 全線最慢工作站 (${summary.bottleneckStation.station_id}) 平均作業時間 = <strong>${fmt(summary.bottleneckStation.avgDur, 2)} 秒/組</strong>（代表流水線穩態連續生產之節拍）。
   `;
 
-  // TAB 2: Idle Time Chart & Table
+  // TAB 2: Idle Time
   destroyChart('idleChart');
   state.charts.idleChart = new Chart(document.getElementById('idleChart'), {
     type: 'bar',
     data: {
       labels: stations.map(s => s.station_id),
       datasets: [
-        { label: '實際加工時間 (秒)', data: stations.map(s => Number(s.sumCalcDur.toFixed(2))), backgroundColor: '#2563eb' },
-        { label: '開工前等料 (秒)', data: stations.map(s => Number(s.startupIdle.toFixed(2))), backgroundColor: '#f59e0b' },
-        { label: '件間等待空檔 (秒)', data: stations.map(s => Number(s.interJobIdle.toFixed(2))), backgroundColor: '#ef4444' },
-        { label: '完工後收尾閒置 (秒)', data: stations.map(s => Number(s.tailIdle.toFixed(2))), backgroundColor: '#94a3b8' }
+        { label: '實際加工時間 (秒)', data: stations.map(s => Number(fmt(s.sumCalcDur, 2))), backgroundColor: '#2563eb' },
+        { label: '開工前等料 (秒)', data: stations.map(s => Number(fmt(s.startupIdle, 2))), backgroundColor: '#f59e0b' },
+        { label: '站內換件空檔 (秒)', data: stations.map(s => Number(fmt(s.interJobIdle, 2))), backgroundColor: '#ef4444' },
+        { label: '完工後收尾閒置 (秒)', data: stations.map(s => Number(fmt(s.tailIdle, 2))), backgroundColor: '#94a3b8' }
       ]
     },
     options: {
@@ -822,7 +846,7 @@ function renderAll() {
         <th>工作站</th>
         <th>加工總時間(秒)</th>
         <th>開工前等料(秒)</th>
-        <th>件間等待空檔(秒)</th>
+        <th>站內換件空檔(秒)</th>
         <th>收尾閒置(秒)</th>
         <th>總閒置時間(秒)</th>
         <th>稼動率(%)</th>
@@ -845,114 +869,51 @@ function renderAll() {
     </tbody>
   `;
 
-  renderWhatIf();
   renderKpi6();
   renderRawVerify();
-}
-
-function populateWhatIfSelects() {
-  const { stations, summary } = state;
-  const helperSel = document.getElementById('helperSelect');
-  const targetSel = document.getElementById('targetStSelect');
-  helperSel.innerHTML = stations.map(s => `<option value="${s.station_id}">${s.station_id} (${fmt(s.avgDur)}s)</option>`).join('');
-  targetSel.innerHTML = stations.map(s => `<option value="${s.station_id}">${s.station_id} (${fmt(s.avgDur)}s)</option>`).join('');
-  helperSel.value = summary.fastestStation.station_id;
-  targetSel.value = summary.bottleneckStation.station_id;
-}
-
-function renderWhatIf() {
-  const { stations, summary } = state;
-  if (!summary) return;
-  const helperId = document.getElementById('helperSelect').value;
-  const targetId = document.getElementById('targetStSelect').value;
-  const reducePct = parseFloat(document.getElementById('reduceRange').value) || 25;
-  document.getElementById('reduceVal').textContent = `${reducePct}%`;
-
-  const simStations = stations.map(st => ({
-    station_id: st.station_id,
-    avgDur: st.station_id === targetId ? st.avgDur * (1 - reducePct / 100) : st.avgDur
-  }));
-
-  const beforeMax = summary.bottleneckStation.avgDur;
-  const afterMaxSt = simStations.reduce((a, b) => (b.avgDur > a.avgDur ? b : a), simStations[0]);
-  const afterMax = afterMaxSt.avgDur;
-
-  const beforeTp = 3600 / beforeMax;
-  const afterTp = 3600 / afterMax;
-  const tpGainPct = ((afterTp - beforeTp) / beforeTp) * 100;
-
-  const beforeBal = summary.lineBalancePct;
-  const afterSum = simStations.reduce((s, x) => s + x.avgDur, 0);
-  const afterBal = (afterSum / (simStations.length * afterMax)) * 100;
-
-  document.getElementById('whatifKpis').innerHTML = `
-    <div class="card">
-      <div class="kpi-label">模擬方案</div>
-      <div class="kpi-value" style="font-size:1.25rem;">${helperId} ➔ 支援 ${targetId}</div>
-      <div class="kpi-sub">${targetId} 工時降 ${reducePct}%</div>
-    </div>
-    <div class="card">
-      <div class="kpi-label">改善後瓶頸時間</div>
-      <div class="kpi-value kpi-blue">${fmt(afterMax, 2)} 秒</div>
-      <div class="kpi-sub">原 ${fmt(beforeMax, 2)} 秒（新瓶頸：${afterMaxSt.station_id}）</div>
-    </div>
-    <div class="card">
-      <div class="kpi-label">改善後理論每小時產出</div>
-      <div class="kpi-value kpi-green">${fmt(afterTp, 1)} 件/時</div>
-      <div class="kpi-sub">原 ${fmt(beforeTp, 1)} 件/時（+${fmt(tpGainPct, 1)}%）</div>
-    </div>
-    <div class="card">
-      <div class="kpi-label">改善後產線平衡率</div>
-      <div class="kpi-value kpi-green">${fmt(afterBal, 1)}%</div>
-      <div class="kpi-sub">原 ${fmt(beforeBal, 1)}%（${afterBal - beforeBal >= 0 ? '+' : ''}${fmt(afterBal - beforeBal, 1)}%）</div>
-    </div>
-  `;
-
-  destroyChart('whatifCtChart');
-  state.charts.whatifCtChart = new Chart(document.getElementById('whatifCtChart'), {
-    type: 'bar',
-    data: {
-      labels: ['改善前（固定各站）', `改善後（${helperId} 支援 ${targetId}）`],
-      datasets: [{
-        label: '最慢瓶頸站時間 (秒)',
-        data: [Number(beforeMax.toFixed(2)), Number(afterMax.toFixed(2))],
-        backgroundColor: ['#64748b', '#2563eb'],
-        borderRadius: 6
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-  });
-
-  destroyChart('whatifTpChart');
-  state.charts.whatifTpChart = new Chart(document.getElementById('whatifTpChart'), {
-    type: 'bar',
-    data: {
-      labels: ['改善前（固定各站）', `改善後（${helperId} 支援 ${targetId}）`],
-      datasets: [{
-        label: '理論每小時產出量 (件/小時)',
-        data: [Number(beforeTp.toFixed(1)), Number(afterTp.toFixed(1))],
-        backgroundColor: ['#64748b', '#16a34a'],
-        borderRadius: 6
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-  });
 }
 
 function renderKpi6() {
   const { summary, records } = state;
   if (!summary) return;
-  const planOutput = Math.max(1, parseFloat(document.getElementById('planOutputInput').value) || 4);
-  const stdTime = Math.max(1, parseFloat(document.getElementById('stdTimeInput').value) || 20);
-  const defects = Math.max(0, parseFloat(document.getElementById('defectInput').value) || 0);
+
+  const planRaw = document.getElementById('planOutputInput').value.trim();
+  const stdRaw = document.getElementById('stdTimeInput').value.trim();
+  const defectRaw = document.getElementById('defectInput').value.trim();
   const workersPerSt = Math.max(1, parseFloat(document.getElementById('workersPerStInput').value) || 1);
 
   const output = summary.completedOutput;
+
+  // 2. Production Attainment: default = completed / total started in CSV
+  const isAutoPlan = planRaw === '';
+  const planOutput = isAutoPlan ? summary.startedCount : Math.max(1, parseFloat(planRaw));
   const attainment = (output / planOutput) * 100;
-  const onTimeCount = records.filter(r => r.duration_sec <= stdTime).length;
+
+  // 3. On-Time Completion Rate: default = each record <= its own station average (or CSV standard_time column if present)
+  const isAutoStd = stdRaw === '';
+  let onTimeCount = 0;
+  let stdDesc = '';
+  if (isAutoStd) {
+    const hasCsvStd = records.some(r => r.csv_standard_time !== null);
+    records.forEach(r => {
+      const bench = r.csv_standard_time !== null ? r.csv_standard_time : summary.stationAvgMap[r.station_id];
+      if (r.duration_sec <= bench) onTimeCount++;
+    });
+    stdDesc = hasCsvStd ? '依 CSV 內建標準工時' : '自動以各站平均工時為基準';
+  } else {
+    const customStd = Math.max(0.1, parseFloat(stdRaw));
+    onTimeCount = records.filter(r => r.duration_sec <= customStd).length;
+    stdDesc = `自訂標準工時 ≤ ${customStd} 秒`;
+  }
   const onTimeRate = (onTimeCount / records.length) * 100;
+
+  // 4. First Pass Yield: default = auto-detected from duplicate rework or failed status in CSV
+  const isAutoDefect = defectRaw === '';
+  const defects = isAutoDefect ? summary.autoDefects : Math.max(0, parseFloat(defectRaw));
   const goodUnits = Math.max(0, output - defects);
   const fpy = (goodUnits / output) * 100;
+
+  // 6. Employee Productivity (default 1 worker per station)
   const totalWorkers = summary.stationCount * workersPerSt;
   const totalHours = summary.totalElapsedSec / 3600;
   const empProdPerHr = output / (totalWorkers * totalHours);
@@ -962,27 +923,27 @@ function renderKpi6() {
     <div class="card">
       <div class="kpi-label">1. Production Output 生產產量</div>
       <div class="kpi-value kpi-blue">${output} 組</div>
-      <div class="kpi-sub">終點站完成總組數</div>
+      <div class="kpi-sub">終點站（${summary.terminalIds.join(',')}）實際完工組數</div>
     </div>
     <div class="card">
       <div class="kpi-label">2. Production Attainment 達成率</div>
       <div class="kpi-value ${attainment >= 100 ? 'kpi-green' : 'kpi-yellow'}">${fmt(attainment, 1)}%</div>
-      <div class="kpi-sub">${output} ÷ 目標 ${planOutput} 組</div>
+      <div class="kpi-sub">完工 ${output} 組 ÷ ${isAutoPlan ? 'CSV 已投產' : '自訂目標'} ${planOutput} 組</div>
     </div>
     <div class="card">
       <div class="kpi-label">3. On-Time Completion 準時完成率</div>
-      <div class="kpi-value ${onTimeRate >= 80 ? 'kpi-green' : 'kpi-red'}">${fmt(onTimeRate, 1)}%</div>
-      <div class="kpi-sub">${onTimeCount} / ${records.length} 筆作業 ≤ 標準工時 ${stdTime} 秒</div>
+      <div class="kpi-value ${onTimeRate >= 70 ? 'kpi-green' : 'kpi-yellow'}">${fmt(onTimeRate, 1)}%</div>
+      <div class="kpi-sub">${onTimeCount} / ${records.length} 筆達標（${stdDesc}）</div>
     </div>
     <div class="card">
       <div class="kpi-label">4. First Pass Yield 首次通過率</div>
       <div class="kpi-value kpi-green">${fmt(fpy, 1)}%</div>
-      <div class="kpi-sub">良品 ${goodUnits} ÷ 總產出 ${output} 組</div>
+      <div class="kpi-sub">一次良品 ${goodUnits} ÷ ${output} 組（${isAutoDefect ? 'CSV 自動偵測重工/異常' : '自訂不良數'}：${defects} 組）</div>
     </div>
     <div class="card">
       <div class="kpi-label">5. Cycle Time 週期時間</div>
       <div class="kpi-value kpi-blue">${fmt(summary.actualLineCT, 2)} 秒/組</div>
-      <div class="kpi-sub">瓶頸站平均 ${fmt(summary.bottleneckStation.avgDur, 2)} 秒/組</div>
+      <div class="kpi-sub">瓶頸站（${summary.bottleneckStation.station_id}）穩態節拍 ${fmt(summary.bottleneckStation.avgDur, 2)} 秒/組</div>
     </div>
     <div class="card">
       <div class="kpi-label">6. Employee Productivity 員工生產力</div>
@@ -991,14 +952,25 @@ function renderKpi6() {
     </div>
   `;
 
+  document.getElementById('kpiAutoNote').innerHTML = `
+    <strong>CSV 自動推算基準說明：</strong>
+    IE Chair 匯出的 CSV 內含各站開完工時間與產品編號，但本身不含「計畫目標產量」、「標準工時」與「品管不良數」欄位；
+    系統已自動由 CSV 推算預設基準——① <strong>達成率</strong>以「已完工組數 ÷ CSV 已投產總組數」計算；② <strong>準時完成率</strong>以「各工站自身平均工時」為標準工時；③ <strong>首次通過率</strong>自動檢查 CSV 內有無同站重複作業（重工）或失敗狀態。若現場另有指定數值，可展開上方進階覆寫調整。
+  `;
+
   destroyChart('kpi6Chart');
   state.charts.kpi6Chart = new Chart(document.getElementById('kpi6Chart'), {
     type: 'bar',
     data: {
       labels: ['達成率 (Attainment)', '準時完成率 (On-Time)', '首次通過率 (FPY)', '產線平衡率 (Balance)'],
       datasets: [{
-        label: '指標表現 (%)',
-        data: [Number(attainment.toFixed(1)), Number(onTimeRate.toFixed(1)), Number(fpy.toFixed(1)), Number(summary.lineBalancePct.toFixed(1))],
+        label: '績效指標表現 (%)',
+        data: [
+          Number(fmt(attainment, 1)),
+          Number(fmt(onTimeRate, 1)),
+          Number(fmt(fpy, 1)),
+          Number(fmt(summary.lineBalancePct, 1))
+        ],
         backgroundColor: ['#2563eb', '#f59e0b', '#16a34a', '#7c3aed'],
         borderRadius: 6
       }]
@@ -1058,21 +1030,22 @@ function loadCSVContent(text) {
     state.stations = analyzed.stations;
     state.summary = analyzed.summary;
 
-    // Auto-adjust sensible defaults based on loaded data
     const bn = state.summary.bottleneckStation.avgDur;
     document.getElementById('warnLineInput').value = Math.max(1, Math.round(bn * 0.9));
-    document.getElementById('stdTimeInput').value = Math.max(1, Math.round(bn * 0.85));
-    document.getElementById('planOutputInput').value = Math.max(1, state.summary.completedOutput + 1);
     document.getElementById('targetThroughputInput').value = Math.max(10, Math.round((state.summary.actualThroughputHr * 1.15) / 5) * 5);
 
-    populateWhatIfSelects();
+    // Reset KPI overrides to fully automatic CSV mode on new file load
+    document.getElementById('planOutputInput').value = '';
+    document.getElementById('stdTimeInput').value = '';
+    document.getElementById('defectInput').value = '';
+    document.getElementById('workersPerStInput').value = '1';
+
     renderAll();
   } catch (err) {
     alert('讀取 CSV 失敗：' + err.message);
   }
 }
 
-// Event Listeners
 document.getElementById('csvFileInput').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -1109,11 +1082,15 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 ['warnLineInput', 'wipThreshInput', 'idleRatioInput', 'targetThroughputInput'].forEach(id => {
   document.getElementById(id).addEventListener('input', renderAll);
 });
-['helperSelect', 'targetStSelect', 'reduceRange'].forEach(id => {
-  document.getElementById(id).addEventListener('input', renderWhatIf);
-});
 ['planOutputInput', 'stdTimeInput', 'defectInput', 'workersPerStInput'].forEach(id => {
   document.getElementById(id).addEventListener('input', renderKpi6);
+});
+document.getElementById('resetKpiAutoBtn').addEventListener('click', () => {
+  document.getElementById('planOutputInput').value = '';
+  document.getElementById('stdTimeInput').value = '';
+  document.getElementById('defectInput').value = '';
+  document.getElementById('workersPerStInput').value = '1';
+  renderKpi6();
 });
 </script>
 </body>
